@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Dice Game</h2>
+    <label for="accountIndex">Account Index:</label>
+    <input type="number" id="accountIndex" min="0" placeholder="Enter account index" value="0" required>
+    <button onclick="initializeWebpage()">Initialize</button>
+    <h4 id="role">Your role: </h4>
+    <h4 id="balance">Your balance: </h4>
+    <h4 id="bankerDeposit">Banker deposit: </h4>
+    <h4 id="betAmount">You bet: </h4>
+
+    <button id="bankerButton">Become Banker</button>
+    <button id="betSmallButton">Bet Small</button>
+    <button id="betBigButton">Bet Big</button>
+    <button id="rollButton">Roll Dice</button>
+
+    <h4 id="betHistory">Bet History: </h4>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+    <script>
+        let web3;
+        let diceGame;
+        let userAccount;
+
+        // ABI of the DiceGame contract
+        let contractAbi = [
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "banker",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "playerAddresses",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "playerCount",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "roundStart",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "bankerSettledTime",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "players",
+      "outputs": [
+        {
+          "name": "betAmount",
+          "type": "uint256"
+        },
+        {
+          "name": "betType",
+          "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "bankerDeposit",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "banker",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "deposit",
+          "type": "uint256"
+        }
+      ],
+      "name": "NewBanker",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "player",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "betType",
+          "type": "uint8"
+        }
+      ],
+      "name": "NewBet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "result",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "resultType",
+          "type": "uint8"
+        }
+      ],
+      "name": "RollResult",
+      "type": "event"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "becomeBanker",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "betType",
+          "type": "uint8"
+        }
+      ],
+      "name": "bet",
+      "outputs": [],
+      "payable": true,
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "rollDice",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [],
+      "name": "checkBankerSettled",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "getCurrentBanker",
+      "outputs": [
+        {
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "getBankerDeposit",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
+
+        // Address of the DiceGame contract
+        let contractAddress = "0x536031159D14ef68dAb916f26a41a6bc029b3c55"; // replace with your contract's address
+
+        let betHistory = [];
+
+        async function updateUI() {
+            let balance = await web3.eth.getBalance(userAccount);
+            document.getElementById("balance").innerText = "Your balance: " + web3.utils.fromWei(balance, "ether") + " Ether";
+
+            let bankerDeposit = await diceGame.methods.getBankerDeposit().call();
+            document.getElementById("bankerDeposit").innerText = "Banker deposit: " + web3.utils.fromWei(bankerDeposit, "ether") + " Ether";
+
+            let currentBanker = await diceGame.methods.getCurrentBanker().call();
+            document.getElementById("role").innerText = "Your role: " + (userAccount === currentBanker ? "Banker" : "Player");
+
+            document.getElementById("betHistory").innerText = "Bet History:\n" + betHistory.join("\n");
+        }
+
+        document.getElementById("bankerButton").addEventListener('click', async () => {
+            await diceGame.methods.becomeBanker().send({ from: userAccount, value: web3.utils.toWei("0.04", "ether"), gas: 5000000 });
+            await updateUI();
+        });
+
+        document.getElementById("betSmallButton").addEventListener('click', async () => {
+            let bet = web3.utils.toWei("0.001", "ether");
+            await diceGame.methods.bet(0).send({ from: userAccount, value: bet, gas: 5000000 });  // player bets 1 Ether on 1 (small)
+            betHistory.push("Bet " + web3.utils.fromWei(bet, "ether") + " Ether on small");
+            document.getElementById("betAmount").innerText = "You bet: " + web3.utils.fromWei(bet, "ether") + " Ether";
+            await updateUI();
+        });
+
+        document.getElementById("betBigButton").addEventListener('click', async () => {
+            let bet = web3.utils.toWei("0.001", "ether");
+            await diceGame.methods.bet(1).send({ from: userAccount, value: bet, gas: 5000000 });  // player bets 1 Ether on 2 (big)
+            betHistory.push("Bet " + web3.utils.fromWei(bet, "ether") + " Ether on big");
+            document.getElementById("betAmount").innerText = "You bet: " + web3.utils.fromWei(bet, "ether") + " Ether";
+            await updateUI();
+        });
+
+        document.getElementById("rollButton").addEventListener('click', async () => {
+            let receipt = await diceGame.methods.rollDice().send({ from: userAccount });
+        });
+
+        window.addEventListener('load', async () => {
+            
+        });
+
+        // Display result function
+        function displayResult(result, resultType) {
+            let rstStr = resultType == 0 ? "Result: Small" : "Result: Big";
+            rstStr = rstStr + " - " + result;
+            betHistory[betHistory.length - 1] += " - " + rstStr;
+            updateUI();
+        }
+
+        // Initialize the webpage with the specified account index
+        function initializeWebpage() {
+            const accountIndex = document.getElementById("accountIndex").value;
+            // Request account access
+            // Check if Web3 has been injected by the browser:
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                try {
+                    // Request account access if needed
+                    window.ethereum.enable();
+                } catch (error) {
+                    // User denied account access...
+                    console.error("User denied account access")
+                }
+            } else if (window.web3) {
+                // Use Mist/MetaMask's provider
+                web3 = window.web3;
+                console.log("Injected web3 detected.");
+            } else {
+                // Fallback to localhost if no web3 injection
+                const provider = new Web3('ws://localhost:7545'); //new Web3.providers.HttpProvider("http://localhost:7545");
+                web3 = new Web3(provider);
+                console.log("No web3 instance injected, using Local web3.");
+            }
+            try {
+                web3.eth.getAccounts().then((accounts) => {
+                    //await window.ethereum.enable();
+                    userAccount = accounts[accountIndex];
+                    diceGame = new web3.eth.Contract(contractAbi, contractAddress);
+                    diceGame.events.RollResult()
+                        .on('data', (event) => {
+                            const result = event.returnValues.result;
+                            const resultType = event.returnValues.resultType;
+                            displayResult(result, resultType);
+                        })
+                        .on('error', (error) => {
+                            console.error('Error listening to RollResult event:', error);
+                        });
+                    updateUI();
+                    // Get the balance of the first account
+                    //web3.eth.getBalance(accounts[0]).then((balance) => {
+                    //    // Convert the balance from wei to ether
+                    //    let balanceInEther = web3.utils.fromWei(balance, 'ether');
+                    //    console.log(`Balance of first account: ${balanceInEther} ETH`);
+                    //});
+                });
+
+                
+            } catch (error) {
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
